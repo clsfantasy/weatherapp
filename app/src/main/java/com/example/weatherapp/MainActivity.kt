@@ -44,9 +44,12 @@ class MainActivity : AppCompatActivity() {
                 tvWeather.text = "请输入城市名"
                 return@setOnClickListener
             }
+            if (!NetUtil.isNetworkAvailable(this)) {
+                tvWeather.text = "无网络连接，请检查网络"
+                return@setOnClickListener
+            }
             lifecycleScope.launch {
                 tvWeather.text = "查询中..."
-                // 1. 先查城市ID
                 val locationId = withContext(Dispatchers.IO) {
                     WeatherApi.getLocationId(cityName)
                 }
@@ -54,22 +57,32 @@ class MainActivity : AppCompatActivity() {
                     tvWeather.text = "未找到该城市"
                     return@launch
                 }
-                // 2. 查本地缓存
                 val cache = withContext(Dispatchers.IO) {
                     weatherDao.getWeather(locationId)
                 }
                 val now = System.currentTimeMillis()
                 if (cache != null && now - cache.cacheTime < 60 * 60 * 1000) {
-                    // 3. 用本地缓存
                     tvWeather.text = "${cache.cityName}\n${cache.temp}℃ ${cache.text}\n更新时间:${cache.updateTime}\n(本地缓存)"
                 } else {
-                    // 4. 请求网络
-                    val weather = withContext(Dispatchers.IO) {
-                        WeatherApi.getWeather(locationId)
+                    var weather: WeatherResponse? = null
+                    var retry = 3
+                    var isTimeout = false
+                    while (retry > 0) {
+                        weather = withContext(Dispatchers.IO) {
+                            try {
+                                WeatherApi.getWeather(locationId)
+                            } catch (e: java.net.SocketTimeoutException) {
+                                isTimeout = true
+                                null
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        if (weather != null && weather.code == "200") break
+                        retry--
                     }
                     if (weather != null && weather.code == "200") {
                         tvWeather.text = "$cityName\n${weather.now.temp}℃ ${weather.now.text}\n更新时间:${weather.updateTime}\n(网络)"
-                        // 5. 保存到本地
                         val entity = WeatherEntity(
                             locationId = locationId,
                             cityName = cityName,
@@ -82,7 +95,7 @@ class MainActivity : AppCompatActivity() {
                             weatherDao.insertWeather(entity)
                         }
                     } else {
-                        tvWeather.text = "获取天气失败"
+                        tvWeather.text = if (isTimeout) "请求超时，请检查网络或稍后重试" else "获取天气失败，请检查网络或稍后重试"
                     }
                 }
             }
