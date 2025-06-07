@@ -9,6 +9,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.room.Room
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,6 +19,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : AppCompatActivity() {
     private lateinit var db: AppDatabase
     private lateinit var weatherDao: WeatherDao
+    private lateinit var historyAdapter: WeatherHistoryAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +40,18 @@ class MainActivity : AppCompatActivity() {
         val etCity = findViewById<EditText>(R.id.et_city)
         val btnSearch = findViewById<Button>(R.id.btn_search)
         val tvWeather = findViewById<TextView>(R.id.tv_weather)
+        val rvHistory = findViewById<RecyclerView>(R.id.rv_history)
+        historyAdapter = WeatherHistoryAdapter(listOf())
+        rvHistory.layoutManager = LinearLayoutManager(this)
+        rvHistory.adapter = historyAdapter
+
+        // 查询并展示历史
+        lifecycleScope.launch {
+            val allHistory = withContext(Dispatchers.IO) {
+                weatherDao.getAllWeather()
+            }
+            historyAdapter.updateData(allHistory)
+        }
 
         btnSearch.setOnClickListener {
             val cityName = etCity.text.toString().trim()
@@ -91,8 +106,13 @@ class MainActivity : AppCompatActivity() {
                             updateTime = weather.updateTime,
                             cacheTime = now
                         )
+                        // 在每次插入天气数据后刷新历史
                         withContext(Dispatchers.IO) {
                             weatherDao.insertWeather(entity)
+                            val allHistory = weatherDao.getAllWeather()
+                            withContext(Dispatchers.Main) {
+                                historyAdapter.updateData(allHistory)
+                            }
                         }
                     } else {
                         tvWeather.text = if (isTimeout) "请求超时，请检查网络或稍后重试" else "获取天气失败，请检查网络或稍后重试"
