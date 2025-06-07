@@ -65,19 +65,23 @@ class MainActivity : AppCompatActivity() {
             }
             lifecycleScope.launch {
                 tvWeather.text = "查询中..."
-                val locationId = withContext(Dispatchers.IO) {
+                val locationResult = withContext(Dispatchers.IO) {
                     WeatherApi.getLocationId(cityName)
                 }
-                if (locationId == null) {
+                if (locationResult == null) {
                     tvWeather.text = "未找到该城市"
                     return@launch
                 }
+                val locationId = locationResult.id
+                val standardCityName = locationResult.name
                 val cache = withContext(Dispatchers.IO) {
                     weatherDao.getWeather(locationId)
                 }
                 val now = System.currentTimeMillis()
                 if (cache != null && now - cache.cacheTime < 60 * 60 * 1000) {
                     tvWeather.text = "${cache.cityName}\n${cache.temp}℃ ${cache.text}\n更新时间:${cache.updateTime}\n(本地缓存)"
+                    if (!NetUtil.isNetworkAvailable(this@MainActivity))
+                        return@launch
                 } else {
                     var weather: WeatherResponse? = null
                     var retry = 3
@@ -97,10 +101,10 @@ class MainActivity : AppCompatActivity() {
                         retry--
                     }
                     if (weather != null && weather.code == "200") {
-                        tvWeather.text = "$cityName\n${weather.now.temp}℃ ${weather.now.text}\n更新时间:${weather.updateTime}\n(网络)"
+                        tvWeather.text = "$standardCityName\n${weather.now.temp}℃ ${weather.now.text}\n更新时间:${weather.updateTime}\n(网络)"
                         val entity = WeatherEntity(
                             locationId = locationId,
-                            cityName = cityName,
+                            cityName = standardCityName, // 用标准名
                             temp = weather.now.temp,
                             text = weather.now.text,
                             updateTime = weather.updateTime,

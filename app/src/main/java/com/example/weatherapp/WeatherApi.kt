@@ -33,7 +33,9 @@ object WeatherApi {
         }
     }
 
-    fun getLocationId(cityName: String): String? {
+    data class LocationResult(val id: String, val name: String)
+
+    fun getLocationId(cityName: String): LocationResult? {
         val encodedCity = URLEncoder.encode(cityName, "UTF-8")
         val url = "https://$API_HOST/geo/v2/city/lookup?location=$encodedCity&key=$API_KEY"
         val request = Request.Builder()
@@ -50,8 +52,8 @@ object WeatherApi {
                 body.string()
             }
             val geoResponse = gson.fromJson(json, GeoResponse::class.java)
-            // 返回第一个匹配的城市ID
-            return geoResponse.location.firstOrNull()?.id
+            val loc = geoResponse.location.firstOrNull() ?: return null
+            return LocationResult(loc.id, loc.name)
         }
     }
 }
