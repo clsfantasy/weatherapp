@@ -1,8 +1,9 @@
 package com.example.weatherapp
 
 import android.os.Bundle
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -37,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         ).build()
         weatherDao = db.weatherDao()
 
-        val etCity = findViewById<EditText>(R.id.et_city)
+        val etCity = findViewById<AutoCompleteTextView>(R.id.et_city)
         val btnSearch = findViewById<Button>(R.id.btn_search)
         val tvWeather = findViewById<TextView>(R.id.tv_weather)
         val rvHistory = findViewById<RecyclerView>(R.id.rv_history)
@@ -45,12 +46,26 @@ class MainActivity : AppCompatActivity() {
         rvHistory.layoutManager = LinearLayoutManager(this)
         rvHistory.adapter = historyAdapter
 
-        // 查询并展示历史
+        // 查询并展示历史，并设置自动提示
         lifecycleScope.launch {
             val allHistory = withContext(Dispatchers.IO) {
                 weatherDao.getAllWeather()
             }
             historyAdapter.updateData(allHistory)
+            // 获取标准城市名去重，限制最多5个
+            val cityNames = allHistory.map { it.cityName }.distinct().take(5)
+            val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, cityNames)
+            etCity.setAdapter(adapter)
+            etCity.threshold = 0 // 输入1个字母就提示
+        }
+
+        etCity.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                etCity.showDropDown()
+            }
+        }
+        etCity.setOnClickListener {
+            etCity.showDropDown()
         }
 
         btnSearch.setOnClickListener {
@@ -110,12 +125,15 @@ class MainActivity : AppCompatActivity() {
                             updateTime = weather.updateTime,
                             cacheTime = now
                         )
-                        // 在每次插入天气数据后刷新历史
+                        // 在插入天气数据后刷新历史和提示
                         withContext(Dispatchers.IO) {
                             weatherDao.insertWeather(entity)
                             val allHistory = weatherDao.getAllWeather()
                             withContext(Dispatchers.Main) {
                                 historyAdapter.updateData(allHistory)
+                                val cityNames = allHistory.map { it.cityName }.distinct().take(5)
+                                val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, cityNames)
+                                etCity.setAdapter(adapter)
                             }
                         }
                     } else {
