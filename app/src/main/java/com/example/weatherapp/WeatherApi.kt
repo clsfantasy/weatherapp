@@ -10,9 +10,9 @@ object WeatherApi {
     private val client = OkHttpClient()
     private val gson = Gson()
 
-    
-    private const val API_HOST = "p25u9v4gwy.re.qweatherapi.com"
-    private const val API_KEY = "621d648610434d83804fc2c823f2d53c"
+    // 使用 BuildConfig 读取 gradle 注入的密钥和 host
+    private val API_HOST = BuildConfig.QWEATHER_API_HOST
+    private val API_KEY = BuildConfig.QWEATHER_API_KEY
 
     fun getWeather(location: String): WeatherResponse? {
         val url = "https://$API_HOST/v7/weather/now?location=$location&key=$API_KEY"

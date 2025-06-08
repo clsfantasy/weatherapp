@@ -1,3 +1,11 @@
+import java.util.Properties
+
+val apikeyProps = Properties()
+val apikeyFile = rootProject.file("apikey.properties")
+if (apikeyFile.exists()) {
+    apikeyProps.load(apikeyFile.inputStream())
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,6 +24,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "QWEATHER_API_KEY", "\"${apikeyProps["QWEATHER_API_KEY"] ?: ""}\"")
+        buildConfigField("String", "QWEATHER_API_HOST", "\"${apikeyProps["QWEATHER_API_HOST"] ?: ""}\"")
     }
 
     buildTypes {
@@ -36,6 +46,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 
