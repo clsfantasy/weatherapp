@@ -16,6 +16,8 @@ import androidx.room.Room
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
     private lateinit var db: AppDatabase
@@ -51,7 +53,7 @@ class MainActivity : AppCompatActivity() {
             val allHistory = withContext(Dispatchers.IO) {
                 weatherDao.getAllWeather()
             }
-            historyAdapter.updateData(allHistory)
+            historyAdapter.updateData(groupHistoryByDate(allHistory))
             // 获取标准城市名去重，限制最多5个
             val cityNames = allHistory.map { it.cityName }.distinct().take(5)
             val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, cityNames)
@@ -130,7 +132,7 @@ class MainActivity : AppCompatActivity() {
                             weatherDao.insertWeather(entity)
                             val allHistory = weatherDao.getAllWeather()
                             withContext(Dispatchers.Main) {
-                                historyAdapter.updateData(allHistory)
+                                historyAdapter.updateData(groupHistoryByDate(allHistory))
                                 val cityNames = allHistory.map { it.cityName }.distinct().take(5)
                                 val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, cityNames)
                                 etCity.setAdapter(adapter)
@@ -143,4 +145,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+}
+
+fun groupHistoryByDate(history: List<WeatherEntity>): List<HistoryItem> {
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val grouped = history.groupBy { sdf.format(Date(it.cacheTime)) }
+    val result = mutableListOf<HistoryItem>()
+    for ((date, items) in grouped) {
+        result.add(HistoryItem.DateHeader(date))
+        result.addAll(items.map { HistoryItem.Weather(it) })
+    }
+    return result
 }
